@@ -32,7 +32,8 @@ defmodule Samly.SPHandler do
 
     saml_encoding = conn.body_params["SAMLEncoding"]
     saml_response = conn.body_params["SAMLResponse"]
-    relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
+    # relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
+    relay_state = conn.body_params["RelayState"] |> URI.decode_www_form()
 
     with {:ok, assertion} <- Helper.decode_idp_auth_resp(sp, saml_encoding, saml_response),
          :ok <- validate_authresp(conn, assertion, relay_state),
@@ -124,9 +125,12 @@ defmodule Samly.SPHandler do
     %IdpData{esaml_idp_rec: _idp_rec, esaml_sp_rec: sp_rec} = idp
     sp = ensure_sp_uris_set(sp_rec, conn)
 
-    saml_encoding = conn.body_params["SAMLEncoding"]
-    saml_response = conn.body_params["SAMLResponse"]
-    relay_state = conn.body_params["RelayState"] |> safe_decode_www_form()
+    saml_encoding = conn.body_params["SAMLEncoding"] || conn.params["SAMLEncoding"]
+    saml_response = conn.body_params["SAMLResponse"] || conn.params["SAMLResponse"]
+
+    relay_state =
+      (conn.body_params["RelayState"] || conn.params["RelayState"])
+      |> safe_decode_www_form()
 
     with {:ok, _payload} <- Helper.decode_idp_signout_resp(sp, saml_encoding, saml_response),
          ^relay_state when relay_state != nil <- get_session(conn, "relay_state"),
